@@ -1,5 +1,7 @@
 package org.example;
 
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.example.entity.Book;
 import org.example.entity.Order;
 import org.example.repository.BookRepository;
@@ -7,6 +9,11 @@ import org.example.repository.OrderRepository;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -241,6 +248,7 @@ public class BookSalesKiosk {
         order = orderRepository.saveOrder(order); // 주문을 데이터베이스에 저장
 
         if (order != null) {
+            createExcelFile(order);
             JOptionPane.showMessageDialog(frame, "주문이 완료되었습니다.\n총 주문금액 : "
                             + order.getTotalPrice(),
                             "주문 확인",
@@ -251,6 +259,45 @@ public class BookSalesKiosk {
         }
     }
 
+    private void createExcelFile(Order order) {
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Order Details");
+
+        // 헤더 행 생성
+        Row headerRow = sheet.createRow(0);
+        headerRow.createCell(0).setCellValue("Book Title");
+        headerRow.createCell(1).setCellValue("Quantity");
+        headerRow.createCell(2).setCellValue("Price");
+
+        // 주문 데이터 작성
+        int rowNum = 1;
+        for (Map.Entry<Book, Integer> entry : cart.entrySet()) {
+            Book book = entry.getKey();
+            Integer quantity = entry.getValue();
+
+            if (quantity > 0) {
+                Row row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(book.getTitle());
+                row.createCell(1).setCellValue(quantity);
+                row.createCell(2).setCellValue(book.getPrice() * quantity);
+            }
+        }
+
+        // 파일로 저장
+        try {
+            File file = new File("Order_Details.xlsx");
+            FileOutputStream fileOut = new FileOutputStream(file);
+            workbook.write(fileOut);
+            fileOut.close();
+            workbook.close();
+
+            // 파일 저장 확인 메시지
+            JOptionPane.showMessageDialog(frame, "엑셀 파일이 생성되었습니다: " + file.getAbsolutePath(), "파일 생성", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(frame, "엑셀 파일 생성 중 오류가 발생했습니다.", "오류", JOptionPane.ERROR_MESSAGE);
+        }
+    }
 
     private void resetOrder() {
         cart.clear();
