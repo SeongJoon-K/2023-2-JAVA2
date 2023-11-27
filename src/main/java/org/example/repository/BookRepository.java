@@ -49,4 +49,8 @@ public class BookRepository {
             emf.close();
         }
     }
+
+    public Book findBookByTitle(String bookTitle) {
+        return em.find(Book.class, bookTitle);
+    }
 }
