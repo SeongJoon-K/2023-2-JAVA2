@@ -7,6 +7,7 @@
     <persistence-unit name="dguBook" transaction-type="RESOURCE_LOCAL">
         <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
         <class>org.example.entity.Book</class>
+        <class>org.example.entity.Order성</class>
         <properties>
             <!-- 필요한 데이터베이스 설정을 추가합니다. -->
             <property name="javax.persistence.jdbc.driver" value="com.mysql.jdbc.Driver"/>
