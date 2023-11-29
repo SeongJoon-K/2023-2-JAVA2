@@ -14,9 +14,11 @@ import java.awt.Font;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class BookSalesKiosk {
     private JFrame frame;
@@ -30,6 +32,7 @@ public class BookSalesKiosk {
     private List<Book> allBooks; // 모든 책의 목록
     private JPanel bookPanel; // 책을 표시하는 JPanel
     private BookRepository bookRepository;
+    private JScrollPane bookScrollPane;
 
 
     public BookSalesKiosk() {
@@ -47,8 +50,8 @@ public class BookSalesKiosk {
 
 
         // Create UI components
-        createImageBar();
-        createBookPanel();
+        createTopBar();
+        createBookPanel(allBooks);
         createOrderPanel();
         createControlPanel();
 
@@ -62,26 +65,48 @@ public class BookSalesKiosk {
         frame.setVisible(true);
     }
 
-    private void createBookPanel() {
-        bookPanel = new JPanel(new GridLayout(0, 4, 10, 10)); // 새로운 JPanel을 생성합니다.
-        bookPanel.setBorder(BorderFactory.createTitledBorder("책 선택"));
-        bookPanel.setBackground(Color.WHITE); // 패널 배경색 설정
+    private void createTopBar() {
+        // 상단 바를 위한 패널 생성
+        JPanel topBar = new JPanel();
+        topBar.setLayout(new BorderLayout());
 
-        if (allBooks != null) {
-            for (Book book : allBooks) {
-                // 각 책 정보를 기반으로 UI 컴포넌트 생성
-                JPanel panel = createBookDisplayPanel(book);
-                bookPanel.add(panel);
-            }
+        // 이미지 바 생성 및 상단 바에 추가
+        JToolBar imageBar = createImageBar();
+        topBar.add(imageBar, BorderLayout.NORTH);
+
+        // 장르 바 생성 및 상단 바에 추가
+        JPanel genreBar = createGenreBar();
+        topBar.add(genreBar, BorderLayout.SOUTH);
+
+        // 상단 바를 프레임의 NORTH 영역에 추가
+        frame.add(topBar, BorderLayout.NORTH);
+    }
+
+
+
+    private void createBookPanel(List<Book> booksToShow) {
+        // 새로운 bookPanel을 생성하거나 기존 bookPanel의 내용을 제거합니다.
+        if (bookPanel == null) {
+            bookPanel = new JPanel(new GridLayout(0, 4, 10, 10));
+            bookPanel.setBorder(BorderFactory.createTitledBorder("책 선택"));
+            bookPanel.setBackground(Color.WHITE);
+
+            // JScrollPane에 bookPanel을 추가하고, frame에 scrollPane을 추가합니다.
+            bookScrollPane = new JScrollPane(bookPanel);
+            frame.add(bookScrollPane, BorderLayout.CENTER);
+        } else {
+            bookPanel.removeAll();
         }
 
-        // 기존에 추가된 컴포넌트를 제거하고 새로운 bookPanel을 추가합니다.
-        JScrollPane scrollPane = new JScrollPane(bookPanel);
-        frame.add(scrollPane, BorderLayout.CENTER);
-        createOrderPanel(); // 주문 패널을 재생성합니다.
-        createControlPanel(); // 컨트롤 패널을 재생성합니다.
-        frame.validate(); // 프레임의 레이아웃을 갱신합니다.
-        frame.repaint(); // 프레임을 다시 그립니다.
+        // 인자로 받은 책 목록을 통해 UI 컴포넌트를 생성합니다.
+        for (Book book : booksToShow) {
+            JPanel panel = createBookDisplayPanel(book);
+            bookPanel.add(panel);
+        }
+
+        // UI를 갱신합니다.
+        bookPanel.revalidate();
+        bookPanel.repaint();
     }
 
     private JPanel createBookDisplayPanel(Book book) {
@@ -136,6 +161,35 @@ public class BookSalesKiosk {
 
         return panel;
     }
+
+
+    private JPanel createGenreBar() {
+        JPanel genreBar = new JPanel();
+        genreBar.setLayout(new FlowLayout(FlowLayout.LEFT));
+        String[] genres = {"All", "소설", "자기계발", "전공"}; // 장르 목록
+
+        for (String genre : genres) {
+            JButton genreButton = new JButton(genre);
+            genreButton.addActionListener(e -> filterBooksByGenre(genre));
+            genreBar.add(genreButton);
+        }
+
+        return genreBar;
+    }
+
+    private void filterBooksByGenre(String genre) {
+        List<Book> filteredBooks;
+        if ("All".equals(genre)) {
+            filteredBooks = new ArrayList<>(allBooks); // "All"이 선택되면 모든 책을 표시
+        } else {
+            filteredBooks = allBooks.stream()
+                    .filter(book -> book.getGenre().equalsIgnoreCase(genre))
+                    .collect(Collectors.toList()); // 선택된 장르에 해당하는 책만 필터링
+        }
+
+        createBookPanel(filteredBooks); // 필터링된 책 목록으로 UI 갱신
+    }
+
 
     private void createOrderPanel() {
         orderSummary = new JTextArea(8, 20);
@@ -250,7 +304,7 @@ public class BookSalesKiosk {
         if (order != null) {
             createExcelFile(order);
             JOptionPane.showMessageDialog(frame, "주문이 완료되었습니다.\n총 주문금액 : "
-                            + order.getTotalPrice(),
+                            + order.getTotalPrice() + " 원",
                             "주문 확인",
                             JOptionPane.INFORMATION_MESSAGE);
             resetOrder(); // 주문 후 카트 초기화
@@ -265,9 +319,9 @@ public class BookSalesKiosk {
 
         // 헤더 행 생성
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Book Title");
-        headerRow.createCell(1).setCellValue("Quantity");
-        headerRow.createCell(2).setCellValue("Price");
+        headerRow.createCell(0).setCellValue("책 제목");
+        headerRow.createCell(1).setCellValue("수량");
+        headerRow.createCell(2).setCellValue("금액");
 
         // 주문 데이터 작성
         int rowNum = 1;
@@ -302,18 +356,14 @@ public class BookSalesKiosk {
     private void resetOrder() {
         cart.clear();
         updateOrderSummary();
-        for (Component comp : ((JPanel) frame.getContentPane().getComponent(0)).getComponents()) {
-            if (comp instanceof JPanel) {
-                for (Component innerComp : ((JPanel) comp).getComponents()) {
-                    if (innerComp instanceof JTextField) {
-                        ((JTextField) innerComp).setText("0");
-                    }
-                }
-            }
+
+        // 모든 책의 수량 필드를 찾아 0으로 설정
+        for (JTextField quantityField : bookQuantityFields.values()) {
+            quantityField.setText("0");
         }
     }
 
-    private void createImageBar() {
+    private JToolBar createImageBar() {
         // 툴바 생성
         JToolBar imageBar = new JToolBar();
         imageBar.setFloatable(false); // 툴바를 고정시킵니다.
@@ -337,6 +387,8 @@ public class BookSalesKiosk {
 
         // 툴바를 프레임의 상단에 추가
         frame.add(imageBar, BorderLayout.NORTH);
+
+        return imageBar;
     }
 
     private void loadBooksFromDB() {
@@ -345,7 +397,7 @@ public class BookSalesKiosk {
         bookRepository.close();
 
         // UI를 구성하는 bookPanel을 재구성합니다.
-        createBookPanel();
+        createBookPanel(allBooks);
     }
 
     public static void main(String[] args) {
